@@ -219,7 +219,7 @@ function idbup(path, defaults, callback) {
         if (typeof options === "string") {
             options = { encoding: options }
         }
-        return extend({}, defaults, options)
+        return extend({}, defaults, options || {})
     }
 
     function emit(err) {
