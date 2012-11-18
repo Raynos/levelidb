@@ -222,11 +222,11 @@ function idbup(path, defaults, callback) {
         return extend({}, defaults, options)
     }
 
-    function emit(db, err) {
+    function emit(err) {
         db.emit("error", err)
     }
 
-    function onReady(db, callback) {
+    function onReady(callback) {
         if (status === "opened") {
             callback()
         } else {
@@ -234,7 +234,7 @@ function idbup(path, defaults, callback) {
         }
     }
 
-    function onOpen(db, operation) {
+    function onOpen(operation) {
         return function opened() {
             var args = arguments
 
