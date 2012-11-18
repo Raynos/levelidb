@@ -238,7 +238,7 @@ function idbup(path, defaults, callback) {
         return function opened() {
             var args = arguments
 
-            onReady(db, function () {
+            onReady(function () {
                 operation.apply(null, args)
             })
         }
