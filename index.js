@@ -5,7 +5,7 @@ var IDBWrapper = require("idb-wrapper")
     /*global Buffer:true*/
     , Buffer = require("buffer").Buffer
     , ReadStream = require("read-stream")
-    , WriteStream = require("write-stream")
+    , EndStream = require("end-stream")
 
     , defaultOptions = {
         encoding: 'utf8'
@@ -303,34 +303,3 @@ function toValueEncoding(data, options) {
     return toEncoding(data.value
         , options.valueEncoding || options.encoding)
 }
-
-function EndStream(write, end) {
-    var counter = 0
-        , ended = false
-
-    end = end || noop
-
-    var stream = WriteStream(function (chunk) {
-        counter++
-        write(chunk, function (err) {
-            if (err) {
-                return stream.emit("error", err)
-            }
-
-            counter--
-
-            if (counter === 0 && ended) {
-                stream.emit("finish")
-            }
-        })
-    }, function () {
-        ended = true
-        if (counter === 0) {
-            this.emit("finish")
-        }
-    })
-
-    return stream
-}
-
-function noop() {}
