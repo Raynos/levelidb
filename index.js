@@ -287,7 +287,7 @@ function toValueBuffer(value, options) {
 }
 
 function toEncoding(value, encoding) {
-    if (encoding === "json") {
+    if (encoding === "json" && typeof value === "string") {
         return JSON.parse(value)
     }
 
@@ -295,11 +295,11 @@ function toEncoding(value, encoding) {
 }
 
 function toKeyEncoding(data, options) {
-    return toEncoding(data.id
+    return toEncoding(data && data.id
         , options.keyEncoding || options.encoding)
 }
 
 function toValueEncoding(data, options) {
-    return toEncoding(data.value
+    return toEncoding(data && data.value
         , options.valueEncoding || options.encoding)
 }
