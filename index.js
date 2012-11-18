@@ -222,11 +222,11 @@ function idbup(path, defaults, callback) {
         return extend({}, defaults, options)
     }
 
-    function emit(err) {
+    function emit(db, err) {
         db.emit("error", err)
     }
 
-    function onReady(callback) {
+    function onReady(db, callback) {
         if (status === "opened") {
             callback()
         } else {
@@ -234,29 +234,29 @@ function idbup(path, defaults, callback) {
         }
     }
 
-    function onOpen(operation) {
-        return function () {
+    function onOpen(db, operation) {
+        return function opened() {
             var args = arguments
 
-            onReady(function () {
+            onReady(db, function () {
                 operation.apply(null, args)
             })
         }
     }
+}
 
-    function makeStreamData(data, options) {
-        if (options.keys && options.values) {
-            return {
-                key: toKeyEncoding(data, options)
-                , value: toValueEncoding(data, options)
-            }
-        } else if (options.keys) {
-            return toKeyEncoding(data, options)
-        } else if (options.values) {
-            return toValueEncoding(data, options)
-        } else {
-            return null
+function makeStreamData(data, options) {
+    if (options.keys && options.values) {
+        return {
+            key: toKeyEncoding(data, options)
+            , value: toValueEncoding(data, options)
         }
+    } else if (options.keys) {
+        return toKeyEncoding(data, options)
+    } else if (options.values) {
+        return toValueEncoding(data, options)
+    } else {
+        return null
     }
 }
 
