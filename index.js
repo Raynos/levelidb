@@ -28,6 +28,7 @@ function idbup(path, defaults, callback) {
             , open: open
             , close: close
             , isOpen: isOpen
+            , isClosed: isClosed
         })
         , idb
         , status = "new"
@@ -213,6 +214,10 @@ function idbup(path, defaults, callback) {
 
     function isOpen() {
         return status === "opened"
+    }
+
+    function isClosed() {
+        return status === "closed"
     }
 
     function getOptions(options) {
