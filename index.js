@@ -38,7 +38,7 @@ function idbup(path, defaults, callback) {
         defaults = {}
     }
 
-    defaults = extend({}, defaultOptions, defaults)
+    defaults = extend({}, defaultOptions, defaults || {})
 
     open(callback)
 
