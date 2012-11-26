@@ -36,12 +36,12 @@ db.batch(ten, function (err) {
     })
 
     stream.pipe(toArray(function (list) {
+        console.log("list", list)
+
         list.forEach(function (item, index) {
             assert.equal(item.key, ten[index].key)
             assert.equal(item.value, ten[index].value)
         })
-
-        console.log("list", list)
     }))
 
     var keyStream = db.keyStream({

@@ -2,14 +2,12 @@ var IDBWrapper = require("idb-wrapper")
     , extend = require("xtend")
     , mapAsync = require("map-async")
     , EventEmitter = require("events").EventEmitter
-    , ReadStream = require("read-stream")
-    , EndStream = require("end-stream")
-    , encoding = require("./lib/encoding")
-    , makeStreamData = encoding.makeStreamData
-    , toKeyBuffer = encoding.toKeyBuffer
-    , toValueBuffer = encoding.toValueBuffer
-    , toKeyEncoding = encoding.toKeyEncoding
-    , toValueEncoding = encoding.toValueEncoding
+    , toKeyBuffer = require("./lib/toKeyBuffer")
+    , toValueBuffer = require("./lib/toValueBuffer")
+    , toValueEncoding = require("./lib/toValueEncoding")
+    , Streams = require("./stream")
+    , getCallback = require("./utils/getCallback")
+    , getOptions = require("./utils/getOptions")
 
     , defaultOptions = {
         encoding: 'utf8'
@@ -25,10 +23,6 @@ function idbup(path, defaults, callback) {
             , del: onOpen(del)
             , get: onOpen(get)
             , batch: onOpen(batch)
-            , readStream: readStream
-            , writeStream: writeStream
-            , keyStream: keyStream
-            , valueStream: valueStream
             , open: open
             , close: close
             , isOpen: isOpen
@@ -44,13 +38,15 @@ function idbup(path, defaults, callback) {
 
     defaults = extend({}, defaultOptions, defaults || {})
 
+    extend(db, Streams(onReady, db, defaults))
+
     open(callback)
 
     return db
 
     function put(key, value, options, callback) {
         callback = getCallback(options, callback)
-        options = getOptions(options, callback)
+        options = getOptions(defaults, options)
         var _key = toKeyBuffer(key, options)
             , _value = toValueBuffer(value, options)
 
@@ -65,7 +61,7 @@ function idbup(path, defaults, callback) {
 
     function del(key, options, callback) {
         callback = getCallback(options, callback)
-        options = getOptions(options, callback)
+        options = getOptions(defaults, options)
         var _key = toKeyBuffer(key, options)
 
         idb.remove(_key, function () {
@@ -76,7 +72,7 @@ function idbup(path, defaults, callback) {
 
     function get(key, options, callback) {
         callback = getCallback(options, callback)
-        options = getOptions(options, callback)
+        options = getOptions(defaults, options)
         key = toKeyBuffer(key, options)
 
         idb.get(key, function (result) {
@@ -87,82 +83,86 @@ function idbup(path, defaults, callback) {
 
     function batch(arr, options, callback) {
         callback = getCallback(options, callback)
-        options = getOptions(options, callback)
+        options = getOptions(defaults, options)
+        var _arr = arr.map(function (item) {
+            var result = {}
+                , key = toKeyBuffer(item.key, options)
 
-        mapAsync(arr, function (record, callback) {
-            if (record.type === "put") {
-                put(record.key, record.value
-                    , options, callback)
-            } else if (record.type === "del") {
-                del(record.key, options, callback)
-            }
-        }, function (err) {
-            if (err) {
-                if (callback) {
-                    return callback(err)
+            if (item.type === "del") {
+                result.type = "remove"
+            } else if (item.type === "put") {
+                result.type = "put"
+                result.value = {
+                    value: toValueBuffer(item.value, options)
+                    , id: key
                 }
-
-                return db.emit("error", err)
             }
 
+            result.key = key
+
+            return result
+        })
+
+        idbBatch.call(idb, _arr, function () {
             db.emit("batch", arr)
             callback && callback()
-        })
+        }, callback || emit)
     }
 
-    function readStream(options) {
-        options = getOptions(options)
-        var start = options.start
-            , end = options.end
-            , range = null
+    function idbBatch(arr, onSuccess, onError) {
+      onError || (onError = function (error) {
+        console.error('Could not apply batch.', error);
+      });
+      onSuccess = onSuccess || noop;
+      var batchTransaction = this.db.transaction([this.storeName] , this.consts.READ_WRITE);
+      var count = arr.length;
+      var called = false;
 
-        var queue = ReadStream()
-            , stream = queue.stream
+      arr.forEach(function (operation) {
+        var type = operation.type;
+        var key = operation.key;
+        var value = operation.value;
 
-        onReady(_open)
-
-        return stream
-
-        function _open() {
-            if (start || end) {
-                range = idb.makeKeyRange({
-                    lower: toKeyBuffer(start, options)
-                    , upper: toKeyBuffer(end, options)
-                })
+        if (type == "remove") {
+          var deleteRequest = batchTransaction.objectStore(this.storeName).delete(key);
+          deleteRequest.onsuccess = function (event) {
+            count--;
+            if (count == 0 && !called) {
+              called = true;
+              onSuccess();
             }
-
-            idb.iterate(function onItem(value) {
-                queue.push(makeStreamData(value, options))
-            }, extend({
-                keyRange: range
-                , order: options.reverse ? "DESC" : "ASC"
-                , onEnd: queue.end
-                , onError: emit
-            }, options))
+          };
+          deleteRequest.onerror = function (err) {
+            batchTransaction.abort();
+            if (!called) {
+              called = true;
+              onError(err);
+            }
+          };
+        } else if (type == "put") {
+          if (typeof value[this.keyPath] == 'undefined' && !this.features.hasAutoIncrement) {
+            value[this.keyPath] = this._getUID()
+          }
+          var putRequest = batchTransaction.objectStore(this.storeName).put(value)
+          putRequest.onsuccess = function (event) {
+            count--;
+            if (count == 0 && !called) {
+              called = true;
+              onSuccess();
+            }
+          };
+          putRequest.onerror = function (err) {
+            batchTransaction.abort();
+            if (!called) {
+              called = true;
+              onError(err);
+            }
+          };
         }
+      }, this);
     }
 
-    function writeStream(options) {
-        options = options || {}
-
-        return EndStream(function write(chunk, callback) {
-            db.put(chunk.key, chunk.value, options, callback)
-        })
-    }
-
-    function keyStream(options) {
-        return readStream(extend(options || {}, {
-            keys: true
-            , values: false
-        }))
-    }
-
-    function valueStream(options) {
-        return readStream(extend(options || {}, {
-            keys: false
-            , values: true
-        }))
-    }
+    function noop() {}
 
     function open(callback) {
         if (status === "opening") {
@@ -185,7 +185,7 @@ function idbup(path, defaults, callback) {
             }, defaults), function () {
                 status = "opened"
                 callback && callback(null, db)
-                db.emit("ready")
+                db.emit("ready", idb)
             })
         }
     }
@@ -222,12 +222,6 @@ function idbup(path, defaults, callback) {
         return status === "closed"
     }
 
-    function getOptions(options) {
-        if (typeof options === "string") {
-            options = { encoding: options }
-        }
-        return extend({}, defaults, options || {})
-    }
 
     function emit(err) {
         db.emit("error", err)
@@ -235,7 +229,7 @@ function idbup(path, defaults, callback) {
 
     function onReady(callback) {
         if (status === "opened") {
-            callback()
+            callback(idb)
         } else {
             db.on("ready", callback)
         }
@@ -250,11 +244,4 @@ function idbup(path, defaults, callback) {
             })
         }
     }
-}
-
-function getCallback(options, callback) {
-    if (typeof options === "function") {
-        return options
-    }
-    return callback
 }
