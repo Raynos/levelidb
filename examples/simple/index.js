@@ -1,9 +1,10 @@
-var levelidb = require("../../index")
+var levelidb = require("../..")
     , toArray = require("write-stream").toArray
     , assert = require("assert")
 
-var db = levelidb("/tmp/some/uri", {
-    encoding: "json"
+var db = levelidb("/tmp/some-uri", {
+    createIfMissing: true
+    , encoding: "json"
 })
 
 db.put("foo", { hello: "world" }, function (err) {
