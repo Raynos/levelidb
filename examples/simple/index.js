@@ -1,4 +1,4 @@
-var levelidb = require("../index")
+var levelidb = require("../../index")
     , toArray = require("write-stream").toArray
     , assert = require("assert")
 

@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "tap": "~0.3.1",
-    "browserify-server": "~2.0.4",
+    "browserify-server": "~2.1.10",
     "write-stream": "~0.4.3",
     "live-reload": "~0.2.0",
     "wr": "~1.2.1"

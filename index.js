@@ -2,10 +2,14 @@ var IDBWrapper = require("idb-wrapper")
     , extend = require("xtend")
     , mapAsync = require("map-async")
     , EventEmitter = require("events").EventEmitter
-    /*global Buffer:true*/
-    , Buffer = require("buffer").Buffer
     , ReadStream = require("read-stream")
     , EndStream = require("end-stream")
+    , encoding = require("./lib/encoding")
+    , makeStreamData = encoding.makeStreamData
+    , toKeyBuffer = encoding.toKeyBuffer
+    , toValueBuffer = encoding.toValueBuffer
+    , toKeyEncoding = encoding.toKeyEncoding
+    , toValueEncoding = encoding.toValueEncoding
 
     , defaultOptions = {
         encoding: 'utf8'
@@ -47,26 +51,26 @@ function idbup(path, defaults, callback) {
     function put(key, value, options, callback) {
         callback = getCallback(options, callback)
         options = getOptions(options, callback)
-        key = toKeyBuffer(key, options)
-        value = toValueBuffer(value, options)
+        var _key = toKeyBuffer(key, options)
+            , _value = toValueBuffer(value, options)
 
         idb.put({
-            value: value
-            , id: key
+            value: _value
+            , id: _key
         }, function () {
             db.emit("put", key, value)
-            callback && callback(null, key, value)
+            callback && callback(null)
         }, callback || emit)
     }
 
     function del(key, options, callback) {
         callback = getCallback(options, callback)
         options = getOptions(options, callback)
-        key = toKeyBuffer(key, options)
+        var _key = toKeyBuffer(key, options)
 
-        idb.remove(key, function () {
+        idb.remove(_key, function () {
             db.emit("del", key)
-            callback && callback(null, key)
+            callback && callback(null)
         }, callback || emit)
     }
 
@@ -133,9 +137,7 @@ function idbup(path, defaults, callback) {
                 keyRange: range
                 , order: options.reverse ? "DESC" : "ASC"
                 , onEnd: queue.end
-                , onError: function (err) {
-                    stream.emit("error", err)
-                }
+                , onError: emit
             }, options))
         }
     }
@@ -250,61 +252,9 @@ function idbup(path, defaults, callback) {
     }
 }
 
-function makeStreamData(data, options) {
-    if (options.keys && options.values) {
-        return {
-            key: toKeyEncoding(data, options)
-            , value: toValueEncoding(data, options)
-        }
-    } else if (options.keys) {
-        return toKeyEncoding(data, options)
-    } else if (options.values) {
-        return toValueEncoding(data, options)
-    } else {
-        return null
-    }
-}
-
 function getCallback(options, callback) {
     if (typeof options === "function") {
         return options
     }
     return callback
-}
-
-function toBuffer(data, encoding) {
-    if (encoding === "json") {
-        data = JSON.stringify(data)
-    } else if (data !== undefined && data !== null) {
-        data = String(data)
-    }
-
-    return data
-}
-
-function toKeyBuffer(key, options) {
-    return toBuffer(key, options.keyEncoding || options.encoding)
-}
-
-function toValueBuffer(value, options) {
-    return toBuffer(value
-        , options.valueEncoding || options.encoding)
-}
-
-function toEncoding(value, encoding) {
-    if (encoding === "json" && typeof value === "string") {
-        return JSON.parse(value)
-    }
-
-    return value
-}
-
-function toKeyEncoding(data, options) {
-    return toEncoding(data && data.id
-        , options.keyEncoding || options.encoding)
-}
-
-function toValueEncoding(data, options) {
-    return toEncoding(data && data.value
-        , options.valueEncoding || options.encoding)
 }
