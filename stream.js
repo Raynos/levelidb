@@ -1,5 +1,5 @@
 var ReadStream = require("read-stream")
-    , EndStream = require("end-stream")
+    , LevelWriteStream = require("level-write-stream")
     , extend = require("xtend")
     , getOptions = require("./utils/getOptions")
     , toKeyBuffer = require("level-encoding/toKeyBuffer")
@@ -10,7 +10,7 @@ module.exports = Streams
 function Streams(onReady, db, defaults) {
     return {
         readStream: readStream
-        , writeStream: writeStream
+        , writeStream: LevelWriteStream(db)
         , keyStream: keyStream
         , valueStream: valueStream
     }
@@ -43,44 +43,6 @@ function Streams(onReady, db, defaults) {
                 , onEnd: queue.end
                 , onError: emit
             }, options))
-        }
-    }
-
-    function writeStream(options) {
-        options = options || {}
-
-        var queue = []
-            , stream = EndStream(write)
-
-        return stream
-
-        function write(chunk, callback) {
-            if (queue.length === 0) {
-                process.nextTick(drain)
-            }
-
-            queue.push(chunk)
-            stream.on("_drain", callback)
-        }
-
-        function drain() {
-            if (queue.length === 1) {
-                var chunk = queue[0]
-                db.put(chunk.key, chunk.value, options, emit)
-            } else {
-                var arr = queue.map(function (chunk) {
-                    chunk.type = "put"
-                    return chunk
-                })
-
-                db.batch(arr, options, emit)
-            }
-
-            queue.length = 0
-        }
-
-        function emit(err) {
-            stream.emit("_drain", err)
         }
     }
 
