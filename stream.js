@@ -49,9 +49,39 @@ function Streams(onReady, db, defaults) {
     function writeStream(options) {
         options = options || {}
 
-        return EndStream(function write(chunk, callback) {
-            db.put(chunk.key, chunk.value, options, callback)
-        })
+        var queue = []
+            , stream = EndStream(write)
+
+        return stream
+
+        function write(chunk, callback) {
+            if (queue.length === 0) {
+                process.nextTick(drain)
+            }
+
+            queue.push(chunk)
+            stream.on("_drain", callback)
+        }
+
+        function drain() {
+            if (queue.length === 1) {
+                var chunk = queue[0]
+                db.put(chunk.key, chunk.value, options, emit)
+            } else {
+                var arr = queue.map(function (chunk) {
+                    chunk.type = "put"
+                    return chunk
+                })
+
+                db.batch(arr, options, emit)
+            }
+
+            queue.length = 0
+        }
+
+        function emit(err) {
+            stream.emit("_drain", err)
+        }
     }
 
     function keyStream(options) {
