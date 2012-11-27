@@ -2,9 +2,9 @@ var IDBWrapper = require("idb-wrapper")
     , extend = require("xtend")
     , mapAsync = require("map-async")
     , EventEmitter = require("events").EventEmitter
-    , toKeyBuffer = require("./lib/toKeyBuffer")
-    , toValueBuffer = require("./lib/toValueBuffer")
-    , toValueEncoding = require("./lib/toValueEncoding")
+    , toKeyBuffer = require("level-encoding/toKeyBuffer")
+    , toValueBuffer = require("level-encoding/toValueBuffer")
+    , toValueEncoding = require("level-encoding/toValueEncoding")
     , Streams = require("./stream")
     , getCallback = require("./utils/getCallback")
     , getOptions = require("./utils/getOptions")
@@ -109,61 +109,6 @@ function idbup(path, defaults, callback) {
         }, callback || emit)
     }
 
-    function idbBatch(arr, onSuccess, onError) {
-      onError || (onError = function (error) {
-        console.error('Could not apply batch.', error);
-      });
-      onSuccess = onSuccess || noop;
-      var batchTransaction = this.db.transaction([this.storeName] , this.consts.READ_WRITE);
-      var count = arr.length;
-      var called = false;
-
-      arr.forEach(function (operation) {
-        var type = operation.type;
-        var key = operation.key;
-        var value = operation.value;
-
-        if (type == "remove") {
-          var deleteRequest = batchTransaction.objectStore(this.storeName).delete(key);
-          deleteRequest.onsuccess = function (event) {
-            count--;
-            if (count == 0 && !called) {
-              called = true;
-              onSuccess();
-            }
-          };
-          deleteRequest.onerror = function (err) {
-            batchTransaction.abort();
-            if (!called) {
-              called = true;
-              onError(err);
-            }
-          };
-        } else if (type == "put") {
-          if (typeof value[this.keyPath] == 'undefined' && !this.features.hasAutoIncrement) {
-            value[this.keyPath] = this._getUID()
-          }
-          var putRequest = batchTransaction.objectStore(this.storeName).put(value)
-          putRequest.onsuccess = function (event) {
-            count--;
-            if (count == 0 && !called) {
-              called = true;
-              onSuccess();
-            }
-          };
-          putRequest.onerror = function (err) {
-            batchTransaction.abort();
-            if (!called) {
-              called = true;
-              onError(err);
-            }
-          };
-        }
-      }, this);
-    }
-
-    function noop() {}
-
     function open(callback) {
         if (status === "opening") {
             db.on("ready", callback)
@@ -244,4 +189,66 @@ function idbup(path, defaults, callback) {
             })
         }
     }
+
+    // IDBWrapper batch implementation inlined.
+    // Waiting for pull request
+    function idbBatch(arr, onSuccess, onError) {
+      onError || (onError = function (error) {
+        console.error('Could not apply batch.', error);
+      });
+      onSuccess = onSuccess || noop;
+      var batchTransaction = this.db.transaction(
+        [this.storeName] , this.consts.READ_WRITE);
+      var count = arr.length;
+      var called = false;
+
+      arr.forEach(function (operation) {
+        var type = operation.type;
+        var key = operation.key;
+        var value = operation.value;
+
+        if (type === "remove") {
+          var deleteRequest = batchTransaction
+            .objectStore(this.storeName).delete(key);
+          deleteRequest.onsuccess = function (event) {
+            count--;
+            if (count === 0 && !called) {
+              called = true;
+              onSuccess();
+            }
+          };
+          deleteRequest.onerror = function (err) {
+            batchTransaction.abort();
+            if (!called) {
+              called = true;
+              onError(err);
+            }
+          };
+        } else if (type === "put") {
+          if (typeof value[this.keyPath] === 'undefined' &&
+            !this.features.hasAutoIncrement
+          ) {
+            value[this.keyPath] = this._getUID()
+          }
+          var putRequest = batchTransaction
+            .objectStore(this.storeName).put(value)
+          putRequest.onsuccess = function (event) {
+            count--;
+            if (count === 0 && !called) {
+              called = true;
+              onSuccess();
+            }
+          };
+          putRequest.onerror = function (err) {
+            batchTransaction.abort();
+            if (!called) {
+              called = true;
+              onError(err);
+            }
+          };
+        }
+      }, this);
+    }
+
+    function noop() {}
 }

@@ -5,6 +5,8 @@
   "author": "{{author}}",
   "main": "index",
   "dependencies": {
+    "memory": "0.0.3",
+    "node-uuid": "~1.4.0"
   },
   "devDependencies": {
     "browserify-server": "~2.1.4",

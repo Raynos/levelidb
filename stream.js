@@ -2,8 +2,8 @@ var ReadStream = require("read-stream")
     , EndStream = require("end-stream")
     , extend = require("xtend")
     , getOptions = require("./utils/getOptions")
-    , toKeyBuffer = require("./lib/toKeyBuffer")
-    , makeStreamData = require("./lib/makeStreamData")
+    , toKeyBuffer = require("level-encoding/toKeyBuffer")
+    , makeStreamData = require("level-encoding/makeStreamData")
 
 module.exports = Streams
 
@@ -20,8 +20,7 @@ function Streams(onReady, db, defaults) {
         var start = options.start
             , end = options.end
             , range = null
-
-        var queue = ReadStream()
+            , queue = ReadStream()
             , stream = queue.stream
 
         onReady(_open)
