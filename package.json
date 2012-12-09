@@ -18,7 +18,6 @@
     "email": "raynos2@gmail.com"
   },
   "dependencies": {
-    "levelup": "~0.3.0",
     "xtend": "~1.0.3",
     "map-async": "~0.1.1",
     "idb-wrapper": "~0.2.1",
@@ -33,6 +32,9 @@
     "write-stream": "~0.4.3",
     "live-reload": "~0.2.0",
     "wr": "~1.2.1"
+  },
+  "optionalDependencies": {
+    "levelup": "~0.3.0"
   },
   "licenses": [
     {
