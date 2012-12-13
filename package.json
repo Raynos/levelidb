@@ -20,7 +20,7 @@
   "dependencies": {
     "xtend": "~1.0.3",
     "map-async": "~0.1.1",
-    "idb-wrapper": "Raynos/IDBWrapper",
+    "idb-wrapper": "git://github.com/Raynos/IDBWrapper",
     "read-stream": "~0.4.8",
     "end-stream": "~0.1.0",
     "level-encoding": "~0.1.0",
